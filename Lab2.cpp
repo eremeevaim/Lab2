@@ -22,9 +22,9 @@ void showMenu() {
 
 int main() {
     Logger::getInstance().log("Программа запущена");
-
     PipelineSystem system;
     int choice;
+    setlocale(LC_ALL, "RU");
 
     do {
         showMenu();
