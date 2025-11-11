@@ -1,10 +1,67 @@
-﻿#include <iostream>
+﻿#define _CRT_SECURE_NO_WARNINGS
+#include <iostream>
 #include <fstream>
 #include <string>
 #include <unordered_map>
 #include <algorithm>
 #include <cctype>
+#include <chrono>
+#include <iomanip>
 using namespace std;
+
+// Глобальные переменные для логирования
+ofstream logFile;
+bool loggingEnabled = false;
+string logFilename = "user_actions.log";
+
+// Функция инициализации логирования
+void initLogging() {
+    logFile.open(logFilename, ios::app); // Открываем файл в режиме добавления
+    if (logFile.is_open()) {
+        loggingEnabled = true;
+        auto now = chrono::system_clock::now();
+        auto time_t = chrono::system_clock::to_time_t(now);
+
+        tm timeInfo;
+        localtime_s(&timeInfo, &time_t);
+
+        logFile << "\n=== Сессия начата: ";
+        logFile << put_time(&timeInfo, "%Y-%m-%d %H:%M:%S") << endl;
+    }
+}
+
+// Функция логирования действий пользователя
+void logAction(const string& action, const string& input = "") {
+    if (loggingEnabled) {
+        auto now = chrono::system_clock::now();
+        auto time_t = chrono::system_clock::to_time_t(now);
+
+        tm timeInfo;
+        localtime_s(&timeInfo, &time_t);
+
+        logFile << put_time(&timeInfo, "%Y-%m-%d %H:%M:%S");
+        logFile << " | Действие: " << action;
+        if (!input.empty()) {
+            logFile << " | Ввод: " << input;
+        }
+        logFile << endl;
+    }
+}
+
+// Функция закрытия логирования
+void closeLogging() {
+    if (loggingEnabled) {
+        auto now = chrono::system_clock::now();
+        auto time_t = chrono::system_clock::to_time_t(now);
+
+        tm timeInfo;
+        localtime_s(&timeInfo, &time_t);
+
+        logFile << "=== Сессия завершена: ";
+        logFile << put_time(&timeInfo, "%Y-%m-%d %H:%M:%S") << endl;
+        logFile.close();
+    }
+}
 
 struct Pipe {
     int id;
@@ -70,6 +127,7 @@ string checkString() {
         getline(cin, input);
         input = trim(input);
         if (!input.empty()) {
+            logAction("Ввод строки", input);
             return input;
         }
         cout << "Ошибка! Ввод не может быть пустым или состоять только из пробелов, попробуйте снова: ";
@@ -81,8 +139,14 @@ bool checkBool() {
         string input;
         getline(cin, input);
         input = trim(input);
-        if (input == "1") return true;
-        if (input == "0") return false;
+        if (input == "1") {
+            logAction("Ввод логического значения", input);
+            return true;
+        }
+        if (input == "0") {
+            logAction("Ввод логического значения", input);
+            return false;
+        }
         cout << "Ошибка! Введите 0 или 1: ";
     }
 }
@@ -96,6 +160,7 @@ int checkInt() {
             size_t pos;
             int result = stoi(input, &pos);
             if (pos == input.size()) {
+                logAction("Ввод целого числа", input);
                 return result;
             }
         }
@@ -114,6 +179,7 @@ float checkFloat() {
             size_t pos;
             float result = stof(input, &pos);
             if (pos == input.size()) {
+                logAction("Ввод числа с плавающей точкой", input);
                 return result;
             }
         }
@@ -177,6 +243,7 @@ int checkMenuChoice() {
         getline(cin, input);
         input = trim(input);
         if (input.size() == 1 && input[0] >= '0' && input[0] <= '8') {
+            logAction("Выбор пункта меню", input);
             return input[0] - '0';
         }
         cout << "Некорректный выбор. Пожалуйста, выберите пункт от 0 до 8: ";
@@ -191,6 +258,7 @@ int checkEditChoice(int max) {
         try {
             int choice = stoi(input);
             if (choice >= 0 && choice <= max) {
+                logAction("Выбор пункта редактирования", input);
                 return choice;
             }
         }
@@ -211,6 +279,7 @@ bool containsIgnoreCase(const string& str, const string& substr) {
 
 // Функции поиска 
 void findPipesByName() {
+    logAction("Поиск труб по названию");
     if (pipes.empty()) {
         cout << "Нет труб для поиска." << endl;
         return;
@@ -234,6 +303,7 @@ void findPipesByName() {
 }
 
 void findPipesByRepairStatus() {
+    logAction("Поиск труб по статусу ремонта");
     if (pipes.empty()) {
         cout << "Нет труб для поиска." << endl;
         return;
@@ -257,6 +327,7 @@ void findPipesByRepairStatus() {
 }
 
 void findStationsByName() {
+    logAction("Поиск КС по названию");
     if (stations.empty()) {
         cout << "Нет КС для поиска." << endl;
         return;
@@ -280,6 +351,7 @@ void findStationsByName() {
 }
 
 void findStationsByUnusedPercentage() {
+    logAction("Поиск КС по проценту незадействованных цехов");
     if (stations.empty()) {
         cout << "Нет КС для поиска." << endl;
         return;
@@ -304,6 +376,7 @@ void findStationsByUnusedPercentage() {
 
 // Меню поиска
 void searchMenu() {
+    logAction("Вход в меню поиска");
     while (true) {
         cout << "\n=== МЕНЮ ПОИСКА ===" << endl;
         cout << "1 - Поиск труб по названию" << endl;
@@ -319,13 +392,16 @@ void searchMenu() {
         case 2: findPipesByRepairStatus(); break;
         case 3: findStationsByName(); break;
         case 4: findStationsByUnusedPercentage(); break;
-        case 0: return;
+        case 0:
+            logAction("Выход из меню поиска");
+            return;
         }
     }
 }
 
 // Основные функции 
 void addPipe() {
+    logAction("Добавление новой трубы");
     Pipe newPipe;
     newPipe.id = nextPipeId++;
 
@@ -341,9 +417,11 @@ void addPipe() {
 
     pipes[newPipe.id] = newPipe;
     cout << "Труба успешно добавлена с ID: " << newPipe.id << endl;
+    logAction("Труба добавлена", to_string(newPipe.id));
 }
 
 void addStation() {
+    logAction("Добавление новой КС");
     KS newStation;
     newStation.id = nextStationId++;
 
@@ -365,9 +443,11 @@ void addStation() {
 
     stations[newStation.id] = newStation;
     cout << "КС успешно добавлена с ID: " << newStation.id << endl;
+    logAction("КС добавлена", to_string(newStation.id));
 }
 
 void viewAllObjects() {
+    logAction("Просмотр всех объектов");
     if (pipes.empty() && stations.empty()) {
         cout << "Никаких данных не было введено." << endl;
         return;
@@ -390,6 +470,7 @@ void viewAllObjects() {
 
 // Улучшенные функции редактирования
 void editPipe() {
+    logAction("Редактирование трубы");
     if (pipes.empty()) {
         cout << "Нет труб для редактирования." << endl;
         return;
@@ -400,6 +481,7 @@ void editPipe() {
 
     if (pipes.find(pipeId) == pipes.end()) {
         cout << "Труба с ID " << pipeId << " не найдена!" << endl;
+        logAction("Труба не найдена", to_string(pipeId));
         return;
     }
 
@@ -416,9 +498,11 @@ void editPipe() {
     pipe.inRepair = checkBool();
 
     cout << "Труба успешно отредактирована!" << endl;
+    logAction("Труба отредактирована", to_string(pipeId));
 }
 
 void editStation() {
+    logAction("Редактирование КС");
     if (stations.empty()) {
         cout << "Нет станций для редактирования." << endl;
         return;
@@ -429,6 +513,7 @@ void editStation() {
 
     if (stations.find(stationId) == stations.end()) {
         cout << "Станция с ID " << stationId << " не найдена!" << endl;
+        logAction("КС не найдена", to_string(stationId));
         return;
     }
 
@@ -451,16 +536,19 @@ void editStation() {
     }
 
     cout << "Станция успешно отредактирована!" << endl;
+    logAction("КС отредактирована", to_string(stationId));
 }
 
 // Улучшенные функции работы с файлами
 void saveToFile() {
+    logAction("Сохранение в файл");
     cout << "Введите имя файла для сохранения: ";
     string filename = checkString();
 
     ofstream file(filename);
     if (!file.is_open()) {
         cout << "Ошибка открытия файла для записи!" << endl;
+        logAction("Ошибка сохранения", filename);
         return;
     }
 
@@ -486,20 +574,24 @@ void saveToFile() {
     if (file.fail()) {
         cout << "Ошибка при записи данных в файл!" << endl;
         file.close();
+        logAction("Ошибка записи данных", filename);
         return;
     }
 
     file.close();
     cout << "Данные успешно сохранены в файл: " << filename << endl;
+    logAction("Данные сохранены", filename);
 }
 
 void loadFromFile() {
+    logAction("Загрузка из файла");
     cout << "Введите имя файла для загрузки: ";
     string filename = checkString();
 
     ifstream file(filename);
     if (!file.is_open()) {
         cout << "Ошибка открытия файла для чтения! Проверьте, что файл существует." << endl;
+        logAction("Ошибка загрузки", filename);
         return;
     }
 
@@ -509,6 +601,7 @@ void loadFromFile() {
         if (!checkBool()) {
             file.close();
             cout << "Загрузка отменена." << endl;
+            logAction("Загрузка отменена пользователем");
             return;
         }
     }
@@ -590,12 +683,14 @@ void loadFromFile() {
         file.close();
         cout << "Данные успешно загружены из файла: " << filename << endl;
         cout << "Загружено труб: " << pipes.size() << ", станций: " << stations.size() << endl;
+        logAction("Данные загружены", filename + " | труб: " + to_string(pipes.size()) + ", КС: " + to_string(stations.size()));
 
     }
     catch (const exception& e) {
         cout << "ОШИБКА при загрузке файла: " << e.what() << endl;
         cout << "Текущие данные не были изменены." << endl;
         file.close();
+        logAction("Ошибка загрузки данных", string(e.what()));
         return;
     }
 }
@@ -617,6 +712,10 @@ void displayMenu() {
 int main() {
     setlocale(LC_ALL, "RU");
 
+    // Инициализация логирования
+    initLogging();
+    logAction("Программа запущена");
+
     while (true) {
         displayMenu();
         int choice = checkMenuChoice();
@@ -632,6 +731,8 @@ int main() {
         case 8: loadFromFile(); break;
         case 0:
             cout << "Выход из программы." << endl;
+            logAction("Выход из программы");
+            closeLogging();
             return 0;
         }
     }
