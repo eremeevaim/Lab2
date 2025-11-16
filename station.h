@@ -2,31 +2,32 @@
 #include <string>
 #include <iostream>
 
-class Pipe {
+class Station {
 private:
     static int nextId;
     int id;
     std::string name;
-    double length;
-    int diameter;
-    bool inRepair;
+    int totalWorkshops;
+    int workingWorkshops;
 
 public:
-    Pipe();
-    Pipe(const std::string& name, double length, int diameter, bool inRepair);
+    Station();
+    Station(const std::string& name, int total, int working);
 
     // Геттеры
     int getId() const { return id; }
     std::string getName() const { return name; }
-    double getLength() const { return length; }
-    int getDiameter() const { return diameter; }
-    bool isInRepair() const { return inRepair; }
+    int getTotalWorkshops() const { return totalWorkshops; }
+    int getWorkingWorkshops() const { return workingWorkshops; }
+
+    // Расчеты
+    double getUnusedPercentage() const;
+    int getUnusedCount() const { return totalWorkshops - workingWorkshops; }
 
     // Сеттеры
     void setName(const std::string& newName) { name = newName; }
-    void setLength(double newLength) { length = newLength; }
-    void setDiameter(int newDiameter) { diameter = newDiameter; }
-    void setRepair(bool repair) { inRepair = repair; }
+    void setTotalWorkshops(int total);
+    void setWorkingWorkshops(int working);
 
     // Ввод/вывод
     void readFromConsole();

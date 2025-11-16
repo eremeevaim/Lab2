@@ -1,741 +1,288 @@
-﻿#define _CRT_SECURE_NO_WARNINGS
-#include <iostream>
+﻿#include "pipe.h"
+#include "station.h"
+#include "utils.h"
+#include <vector>
 #include <fstream>
-#include <string>
-#include <unordered_map>
 #include <algorithm>
-#include <cctype>
-#include <chrono>
-#include <iomanip>
-using namespace std;
 
-// Глобальные переменные для логирования
-ofstream logFile;
-bool loggingEnabled = false;
-string logFilename = "user_actions.log";
+class PipelineManager {
+private:
+    std::vector<Pipe> pipes;
+    std::vector<Station> stations;
 
-// Функция инициализации логирования
-void initLogging() {
-    logFile.open(logFilename, ios::app); // Открываем файл в режиме добавления
-    if (logFile.is_open()) {
-        loggingEnabled = true;
-        auto now = chrono::system_clock::now();
-        auto time_t = chrono::system_clock::to_time_t(now);
-
-        tm timeInfo;
-        localtime_s(&timeInfo, &time_t);
-
-        logFile << "\n=== Сессия начата: ";
-        logFile << put_time(&timeInfo, "%Y-%m-%d %H:%M:%S") << endl;
+public:
+    // Основные операции
+    void addPipe() {
+        Pipe pipe;
+        pipe.readFromConsole();
+        pipes.push_back(pipe);
+        logAction("Добавлена труба ID: " + std::to_string(pipe.getId()));
     }
-}
 
-// Функция логирования действий пользователя
-void logAction(const string& action, const string& input = "") {
-    if (loggingEnabled) {
-        auto now = chrono::system_clock::now();
-        auto time_t = chrono::system_clock::to_time_t(now);
+    void addStation() {
+        Station station;
+        station.readFromConsole();
+        stations.push_back(station);
+        logAction("Добавлена станция ID: " + std::to_string(station.getId()));
+    }
 
-        tm timeInfo;
-        localtime_s(&timeInfo, &time_t);
-
-        logFile << put_time(&timeInfo, "%Y-%m-%d %H:%M:%S");
-        logFile << " | Действие: " << action;
-        if (!input.empty()) {
-            logFile << " | Ввод: " << input;
+    void showAll() const {
+        std::cout << "\n=== ВСЕ ТРУБЫ ===\n";
+        for (const auto& pipe : pipes) {
+            pipe.printToConsole();
         }
-        logFile << endl;
-    }
-}
 
-// Функция закрытия логирования
-void closeLogging() {
-    if (loggingEnabled) {
-        auto now = chrono::system_clock::now();
-        auto time_t = chrono::system_clock::to_time_t(now);
-
-        tm timeInfo;
-        localtime_s(&timeInfo, &time_t);
-
-        logFile << "=== Сессия завершена: ";
-        logFile << put_time(&timeInfo, "%Y-%m-%d %H:%M:%S") << endl;
-        logFile.close();
-    }
-}
-
-struct Pipe {
-    int id;
-    string name;
-    float length;
-    int diameter;
-    bool inRepair;
-
-    friend ostream& operator<<(ostream& out, const Pipe& pipe) {
-        out << "====================" << endl;
-        out << "ТРУБА ID: " << pipe.id << endl;
-        out << "====================" << endl;
-        out << "Название: " << pipe.name << endl;
-        out << "Длина: " << pipe.length << " км" << endl;
-        out << "Диаметр: " << pipe.diameter << " мм" << endl;
-        out << "В ремонте: " << (pipe.inRepair ? "Да" : "Нет") << endl;
-        return out;
-    }
-};
-
-struct KS {
-    int id;
-    string name;
-    int totalWorkshops;
-    int workingWorkshops;
-
-    double getUnusedPercentage() const {
-        if (totalWorkshops == 0) return 0.0;
-        return ((totalWorkshops - workingWorkshops) * 100.0) / totalWorkshops;
-    }
-
-    friend ostream& operator<<(ostream& out, const KS& station) {
-        out << "====================" << endl;
-        out << "КОМПРЕССОРНАЯ СТАНЦИЯ ID: " << station.id << endl;
-        out << "====================" << endl;
-        out << "Название: " << station.name << endl;
-        out << "Всего цехов: " << station.totalWorkshops << endl;
-        out << "Работающих цехов: " << station.workingWorkshops << endl;
-        out << "Незадействованных цехов: " << (station.totalWorkshops - station.workingWorkshops) << endl;
-        out << "Процент незадействованных: " << station.getUnusedPercentage() << "%" << endl;
-        return out;
-    }
-};
-
-// Глобальные коллекции
-unordered_map<int, Pipe> pipes;
-unordered_map<int, KS> stations;
-int nextPipeId = 1;
-int nextStationId = 1;
-
-// Вспомогательная функция для удаления пробелов
-string trim(const string& str) {
-    size_t start = str.find_first_not_of(" \t\n\r");
-    if (start == string::npos) return "";
-    size_t end = str.find_last_not_of(" \t\n\r");
-    return str.substr(start, end - start + 1);
-}
-
-// Улучшенные функции проверки ввода
-string checkString() {
-    string input;
-    while (true) {
-        getline(cin, input);
-        input = trim(input);
-        if (!input.empty()) {
-            logAction("Ввод строки", input);
-            return input;
+        std::cout << "\n=== ВСЕ СТАНЦИИ ===\n";
+        for (const auto& station : stations) {
+            station.printToConsole();
         }
-        cout << "Ошибка! Ввод не может быть пустым или состоять только из пробелов, попробуйте снова: ";
     }
-}
 
-bool checkBool() {
-    while (true) {
-        string input;
-        getline(cin, input);
-        input = trim(input);
-        if (input == "1") {
-            logAction("Ввод логического значения", input);
-            return true;
+    // Поиск труб
+    void findPipes() {
+        std::cout << "\nПоиск труб:\n";
+        std::cout << "1 - По названию\n";
+        std::cout << "2 - По статусу ремонта\n";
+        std::cout << "Выберите: ";
+
+        int choice = getIntInRange(1, 2);
+
+        if (choice == 1) {
+            std::cout << "Введите название для поиска: ";
+            std::string name = getStringInput();
+
+            bool found = false;
+            for (const auto& pipe : pipes) {
+                if (pipe.getName().find(name) != std::string::npos) {
+                    pipe.printToConsole();
+                    found = true;
+                }
+            }
+            if (!found) std::cout << "Трубы не найдены.\n";
+
         }
-        if (input == "0") {
-            logAction("Ввод логического значения", input);
-            return false;
+        else {
+            std::cout << "Искать трубы в ремонте? (1-да, 0-нет): ";
+            bool inRepair = getYesNoInput();
+
+            bool found = false;
+            for (const auto& pipe : pipes) {
+                if (pipe.isInRepair() == inRepair) {
+                    pipe.printToConsole();
+                    found = true;
+                }
+            }
+            if (!found) std::cout << "Трубы не найдены.\n";
         }
-        cout << "Ошибка! Введите 0 или 1: ";
     }
-}
 
-int checkInt() {
-    string input;
-    while (true) {
-        getline(cin, input);
-        input = trim(input);
-        try {
-            size_t pos;
-            int result = stoi(input, &pos);
-            if (pos == input.size()) {
-                logAction("Ввод целого числа", input);
-                return result;
+    // Поиск станций
+    void findStations() {
+        std::cout << "\nПоиск станций:\n";
+        std::cout << "1 - По названию\n";
+        std::cout << "2 - По проценту незадействованных\n";
+        std::cout << "Выберите: ";
+
+        int choice = getIntInRange(1, 2);
+
+        if (choice == 1) {
+            std::cout << "Введите название для поиска: ";
+            std::string name = getStringInput();
+
+            bool found = false;
+            for (const auto& station : stations) {
+                if (station.getName().find(name) != std::string::npos) {
+                    station.printToConsole();
+                    found = true;
+                }
+            }
+            if (!found) std::cout << "Станции не найдены.\n";
+
+        }
+        else {
+            std::cout << "Введите максимальный процент незадействованных: ";
+            double maxPercent = getDoubleInput();
+
+            bool found = false;
+            for (const auto& station : stations) {
+                if (station.getUnusedPercentage() <= maxPercent) {
+                    station.printToConsole();
+                    found = true;
+                }
+            }
+            if (!found) std::cout << "Станции не найдены.\n";
+        }
+    }
+
+    // Пакетное редактирование труб
+    void batchEditPipes() {
+        std::cout << "\nПакетное редактирование труб:\n";
+        std::vector<Pipe*> pipesToEdit;
+
+        // Поиск труб для редактирования
+        std::cout << "Искать трубы:\n";
+        std::cout << "1 - Все трубы\n";
+        std::cout << "2 - По названию\n";
+        std::cout << "3 - По статусу ремонта\n";
+        std::cout << "Выберите: ";
+
+        int choice = getIntInRange(1, 3);
+
+        if (choice == 1) {
+            for (auto& pipe : pipes) {
+                pipesToEdit.push_back(&pipe);
             }
         }
-        catch (...) {
-        }
-        cout << "Ошибка! Введите целое число: ";
-    }
-}
+        else if (choice == 2) {
+            std::cout << "Введите название: ";
+            std::string name = getStringInput();
 
-float checkFloat() {
-    string input;
-    while (true) {
-        getline(cin, input);
-        input = trim(input);
-        try {
-            size_t pos;
-            float result = stof(input, &pos);
-            if (pos == input.size()) {
-                logAction("Ввод числа с плавающей точкой", input);
-                return result;
+            for (auto& pipe : pipes) {
+                if (pipe.getName().find(name) != std::string::npos) {
+                    pipesToEdit.push_back(&pipe);
+                }
             }
         }
-        catch (...) {
-        }
-        cout << "Ошибка! Введите число: ";
-    }
-}
+        else {
+            std::cout << "В ремонте? (1-да, 0-нет): ";
+            bool inRepair = getYesNoInput();
 
-// Новая функция для проверки положительного float
-float checkPositiveFloat(const string& fieldName) {
-    float value;
-    while (true) {
-        value = checkFloat();
-        if (value > 0) {
-            return value;
-        }
-        cout << fieldName << " должно быть положительным! Повторите ввод: ";
-    }
-}
-
-// Новая функция для проверки положительного int
-int checkPositiveInt(const string& fieldName) {
-    int value;
-    while (true) {
-        value = checkInt();
-        if (value > 0) {
-            return value;
-        }
-        cout << fieldName << " должно быть положительным! Повторите ввод: ";
-    }
-}
-
-// Новая функция для проверки неотрицательного int
-int checkNonNegativeInt(const string& fieldName) {
-    int value;
-    while (true) {
-        value = checkInt();
-        if (value >= 0) {
-            return value;
-        }
-        cout << fieldName << " не может быть отрицательным! Повторите ввод: ";
-    }
-}
-
-// Новая функция для проверки процента (0-100)
-float checkPercentage() {
-    float value;
-    while (true) {
-        value = checkFloat();
-        if (value >= 0 && value <= 100) {
-            return value;
-        }
-        cout << "Процент должен быть в диапазоне от 0 до 100! Повторите ввод: ";
-    }
-}
-
-int checkMenuChoice() {
-    string input;
-    while (true) {
-        getline(cin, input);
-        input = trim(input);
-        if (input.size() == 1 && input[0] >= '0' && input[0] <= '8') {
-            logAction("Выбор пункта меню", input);
-            return input[0] - '0';
-        }
-        cout << "Некорректный выбор. Пожалуйста, выберите пункт от 0 до 8: ";
-    }
-}
-
-int checkEditChoice(int max) {
-    string input;
-    while (true) {
-        getline(cin, input);
-        input = trim(input);
-        try {
-            int choice = stoi(input);
-            if (choice >= 0 && choice <= max) {
-                logAction("Выбор пункта редактирования", input);
-                return choice;
+            for (auto& pipe : pipes) {
+                if (pipe.isInRepair() == inRepair) {
+                    pipesToEdit.push_back(&pipe);
+                }
             }
         }
-        catch (...) {
-        }
-        cout << "Некорректный выбор. Пожалуйста, выберите пункт от 0 до " << max << ": ";
-    }
-}
 
-// Функция для поиска без учета регистра
-bool containsIgnoreCase(const string& str, const string& substr) {
-    string strLower = str;
-    string substrLower = substr;
-    transform(strLower.begin(), strLower.end(), strLower.begin(), ::tolower);
-    transform(substrLower.begin(), substrLower.end(), substrLower.begin(), ::tolower);
-    return strLower.find(substrLower) != string::npos;
-}
-
-// Функции поиска 
-void findPipesByName() {
-    logAction("Поиск труб по названию");
-    if (pipes.empty()) {
-        cout << "Нет труб для поиска." << endl;
-        return;
-    }
-
-    cout << "Введите часть названия для поиска: ";
-    string searchName = checkString();
-
-    bool found = false;
-    for (auto it = pipes.begin(); it != pipes.end(); ++it) {
-        const Pipe& pipe = it->second;
-        if (containsIgnoreCase(pipe.name, searchName)) {
-            cout << pipe;
-            found = true;
-        }
-    }
-
-    if (!found) {
-        cout << "Трубы с названием содержащим '" << searchName << "' не найдены." << endl;
-    }
-}
-
-void findPipesByRepairStatus() {
-    logAction("Поиск труб по статусу ремонта");
-    if (pipes.empty()) {
-        cout << "Нет труб для поиска." << endl;
-        return;
-    }
-
-    cout << "Искать трубы в ремонте? (1 - да, 0 - нет): ";
-    bool searchStatus = checkBool();
-
-    bool found = false;
-    for (auto it = pipes.begin(); it != pipes.end(); ++it) {
-        const Pipe& pipe = it->second;
-        if (pipe.inRepair == searchStatus) {
-            cout << pipe;
-            found = true;
-        }
-    }
-
-    if (!found) {
-        cout << "Трубы с указанным статусом ремонта не найдены." << endl;
-    }
-}
-
-void findStationsByName() {
-    logAction("Поиск КС по названию");
-    if (stations.empty()) {
-        cout << "Нет КС для поиска." << endl;
-        return;
-    }
-
-    cout << "Введите часть названия для поиска: ";
-    string searchName = checkString();
-
-    bool found = false;
-    for (auto it = stations.begin(); it != stations.end(); ++it) {
-        const KS& station = it->second;
-        if (containsIgnoreCase(station.name, searchName)) {
-            cout << station;
-            found = true;
-        }
-    }
-
-    if (!found) {
-        cout << "КС с названием содержащим '" << searchName << "' не найдены." << endl;
-    }
-}
-
-void findStationsByUnusedPercentage() {
-    logAction("Поиск КС по проценту незадействованных цехов");
-    if (stations.empty()) {
-        cout << "Нет КС для поиска." << endl;
-        return;
-    }
-
-    cout << "Введите минимальный процент незадействованных цехов (0-100): ";
-    double minPercentage = checkPercentage();
-
-    bool found = false;
-    for (auto it = stations.begin(); it != stations.end(); ++it) {
-        const KS& station = it->second;
-        if (station.getUnusedPercentage() >= minPercentage) {
-            cout << station;
-            found = true;
-        }
-    }
-
-    if (!found) {
-        cout << "КС с процентом незадействованных цехов >= " << minPercentage << "% не найдены." << endl;
-    }
-}
-
-// Меню поиска
-void searchMenu() {
-    logAction("Вход в меню поиска");
-    while (true) {
-        cout << "\n=== МЕНЮ ПОИСКА ===" << endl;
-        cout << "1 - Поиск труб по названию" << endl;
-        cout << "2 - Поиск труб по статусу ремонта" << endl;
-        cout << "3 - Поиск КС по названию" << endl;
-        cout << "4 - Поиск КС по проценту незадействованных цехов" << endl;
-        cout << "0 - Назад в главное меню" << endl;
-        cout << "Выберите действие: ";
-
-        int choice = checkEditChoice(4);
-        switch (choice) {
-        case 1: findPipesByName(); break;
-        case 2: findPipesByRepairStatus(); break;
-        case 3: findStationsByName(); break;
-        case 4: findStationsByUnusedPercentage(); break;
-        case 0:
-            logAction("Выход из меню поиска");
+        if (pipesToEdit.empty()) {
+            std::cout << "Трубы не найдены.\n";
             return;
         }
-    }
-}
 
-// Основные функции 
-void addPipe() {
-    logAction("Добавление новой трубы");
-    Pipe newPipe;
-    newPipe.id = nextPipeId++;
+        std::cout << "Найдено " << pipesToEdit.size() << " труб.\n";
 
-    cout << "Введите характеристики для трубы (ID: " << newPipe.id << ")." << endl;
-    cout << "Название: ";
-    newPipe.name = checkString();
-    cout << "Длина (км): ";
-    newPipe.length = checkPositiveFloat("Длина");
-    cout << "Диаметр (мм): ";
-    newPipe.diameter = checkPositiveInt("Диаметр");
-    cout << "В ремонте ли труба? (Да - '1', Нет - '0') ";
-    newPipe.inRepair = checkBool();
+        // Редактирование
+        std::cout << "Изменить статус ремонта для всех? (1-да, 0-нет): ";
+        if (getYesNoInput()) {
+            std::cout << "Установить статус 'в ремонте'? (1-да, 0-нет): ";
+            bool newStatus = getYesNoInput();
 
-    pipes[newPipe.id] = newPipe;
-    cout << "Труба успешно добавлена с ID: " << newPipe.id << endl;
-    logAction("Труба добавлена", to_string(newPipe.id));
-}
-
-void addStation() {
-    logAction("Добавление новой КС");
-    KS newStation;
-    newStation.id = nextStationId++;
-
-    cout << "Введите характеристики для станции (ID: " << newStation.id << ")." << endl;
-    cout << "Название: ";
-    newStation.name = checkString();
-    cout << "Количество цехов: ";
-    newStation.totalWorkshops = checkPositiveInt("Количество цехов");
-
-    cout << "Количество цехов (в работе): ";
-    while (true) {
-        newStation.workingWorkshops = checkNonNegativeInt("Количество работающих цехов");
-        if (newStation.workingWorkshops <= newStation.totalWorkshops) {
-            break;
-        }
-        cout << "Количество работающих цехов не может быть больше общего количества ("
-            << newStation.totalWorkshops << ")! Повторите ввод: ";
-    }
-
-    stations[newStation.id] = newStation;
-    cout << "КС успешно добавлена с ID: " << newStation.id << endl;
-    logAction("КС добавлена", to_string(newStation.id));
-}
-
-void viewAllObjects() {
-    logAction("Просмотр всех объектов");
-    if (pipes.empty() && stations.empty()) {
-        cout << "Никаких данных не было введено." << endl;
-        return;
-    }
-
-    if (!pipes.empty()) {
-        cout << "\n=== ВСЕ ТРУБЫ (" << pipes.size() << " шт.) ===" << endl;
-        for (auto it = pipes.begin(); it != pipes.end(); ++it) {
-            cout << it->second;
+            for (auto pipe : pipesToEdit) {
+                pipe->setRepair(newStatus);
+            }
+            logAction("Пакетное изменение статуса ремонта для " +
+                std::to_string(pipesToEdit.size()) + " труб");
         }
     }
 
-    if (!stations.empty()) {
-        cout << "\n=== ВСЕ КОМПРЕССОРНЫЕ СТАНЦИИ (" << stations.size() << " шт.) ===" << endl;
-        for (auto it = stations.begin(); it != stations.end(); ++it) {
-            cout << it->second;
+    // Сохранение в файл
+    void saveToFile() {
+        std::cout << "Введите имя файла: ";
+        std::string filename = getStringInput();
+
+        std::ofstream file(filename);
+        if (!file.is_open()) {
+            std::cout << "Ошибка сохранения!\n";
+            return;
         }
-    }
-}
 
-// Улучшенные функции редактирования
-void editPipe() {
-    logAction("Редактирование трубы");
-    if (pipes.empty()) {
-        cout << "Нет труб для редактирования." << endl;
-        return;
-    }
-
-    cout << "Введите ID трубы для редактирования: ";
-    int pipeId = checkInt();
-
-    if (pipes.find(pipeId) == pipes.end()) {
-        cout << "Труба с ID " << pipeId << " не найдена!" << endl;
-        logAction("Труба не найдена", to_string(pipeId));
-        return;
-    }
-
-    Pipe& pipe = pipes[pipeId];
-    cout << "Редактирование трубы: " << pipe.name << " (ID: " << pipeId << ")" << endl;
-
-    cout << "Новое название: ";
-    pipe.name = checkString();
-    cout << "Новая длина (км): ";
-    pipe.length = checkPositiveFloat("Длина");
-    cout << "Новый диаметр (мм): ";
-    pipe.diameter = checkPositiveInt("Диаметр");
-    cout << "В ремонте? (1 - да, 0 - нет): ";
-    pipe.inRepair = checkBool();
-
-    cout << "Труба успешно отредактирована!" << endl;
-    logAction("Труба отредактирована", to_string(pipeId));
-}
-
-void editStation() {
-    logAction("Редактирование КС");
-    if (stations.empty()) {
-        cout << "Нет станций для редактирования." << endl;
-        return;
-    }
-
-    cout << "Введите ID станции для редактирования: ";
-    int stationId = checkInt();
-
-    if (stations.find(stationId) == stations.end()) {
-        cout << "Станция с ID " << stationId << " не найдена!" << endl;
-        logAction("КС не найдена", to_string(stationId));
-        return;
-    }
-
-    KS& station = stations[stationId];
-    cout << "Редактирование станции: " << station.name << " (ID: " << stationId << ")" << endl;
-
-    cout << "Новое название: ";
-    station.name = checkString();
-    cout << "Новое общее количество цехов: ";
-    station.totalWorkshops = checkPositiveInt("Количество цехов");
-
-    cout << "Новое количество работающих цехов: ";
-    while (true) {
-        station.workingWorkshops = checkNonNegativeInt("Количество работающих цехов");
-        if (station.workingWorkshops <= station.totalWorkshops) {
-            break;
+        // Сохраняем трубы
+        file << pipes.size() << "\n";
+        for (const auto& pipe : pipes) {
+            pipe.saveToFile(file);
         }
-        cout << "Количество работающих цехов не может быть больше общего количества ("
-            << station.totalWorkshops << ")! Повторите ввод: ";
-    }
 
-    cout << "Станция успешно отредактирована!" << endl;
-    logAction("КС отредактирована", to_string(stationId));
-}
+        // Сохраняем станции
+        file << stations.size() << "\n";
+        for (const auto& station : stations) {
+            station.saveToFile(file);
+        }
 
-// Улучшенные функции работы с файлами
-void saveToFile() {
-    logAction("Сохранение в файл");
-    cout << "Введите имя файла для сохранения: ";
-    string filename = checkString();
-
-    ofstream file(filename);
-    if (!file.is_open()) {
-        cout << "Ошибка открытия файла для записи!" << endl;
-        logAction("Ошибка сохранения", filename);
-        return;
-    }
-
-    // Сохраняем трубы
-    file << pipes.size() << endl;
-    for (const auto& pipe : pipes) {
-        file << pipe.second.id << endl;
-        file << pipe.second.name << endl;
-        file << pipe.second.length << endl;
-        file << pipe.second.diameter << endl;
-        file << pipe.second.inRepair << endl;
-    }
-
-    // Сохраняем станции
-    file << stations.size() << endl;
-    for (const auto& station : stations) {
-        file << station.second.id << endl;
-        file << station.second.name << endl;
-        file << station.second.totalWorkshops << endl;
-        file << station.second.workingWorkshops << endl;
-    }
-
-    if (file.fail()) {
-        cout << "Ошибка при записи данных в файл!" << endl;
         file.close();
-        logAction("Ошибка записи данных", filename);
-        return;
+        logAction("Сохранено в файл: " + filename);
+        std::cout << "Данные сохранены!\n";
     }
 
-    file.close();
-    cout << "Данные успешно сохранены в файл: " << filename << endl;
-    logAction("Данные сохранены", filename);
-}
+    // Загрузка из файла
+    void loadFromFile() {
+        std::cout << "Введите имя файла: ";
+        std::string filename = getStringInput();
 
-void loadFromFile() {
-    logAction("Загрузка из файла");
-    cout << "Введите имя файла для загрузки: ";
-    string filename = checkString();
-
-    ifstream file(filename);
-    if (!file.is_open()) {
-        cout << "Ошибка открытия файла для чтения! Проверьте, что файл существует." << endl;
-        logAction("Ошибка загрузки", filename);
-        return;
-    }
-
-    // Предупреждение о перезаписи
-    if (!pipes.empty() || !stations.empty()) {
-        cout << "ВНИМАНИЕ! Текущие данные будут удалены. Продолжить? (1 - да, 0 - нет): ";
-        if (!checkBool()) {
-            file.close();
-            cout << "Загрузка отменена." << endl;
-            logAction("Загрузка отменена пользователем");
+        std::ifstream file(filename);
+        if (!file.is_open()) {
+            std::cout << "Ошибка загрузки!\n";
             return;
         }
-    }
 
-    // Создаем временные коллекции для безопасной загрузки
-    unordered_map<int, Pipe> tempPipes;
-    unordered_map<int, KS> tempStations;
-    int tempNextPipeId = 1;
-    int tempNextStationId = 1;
+        pipes.clear();
+        stations.clear();
 
-    try {
         // Загружаем трубы
         int pipeCount;
         file >> pipeCount;
-        if (file.fail() || pipeCount < 0) {
-            throw runtime_error("Неверный формат файла: некорректное количество труб");
-        }
         file.ignore();
 
         for (int i = 0; i < pipeCount; i++) {
             Pipe pipe;
-            file >> pipe.id;
-            if (file.fail()) throw runtime_error("Ошибка чтения ID трубы");
-            file.ignore();
-
-            getline(file, pipe.name);
-            if (pipe.name.empty()) throw runtime_error("Ошибка чтения названия трубы");
-
-            file >> pipe.length;
-            if (file.fail() || pipe.length <= 0) throw runtime_error("Ошибка чтения длины трубы");
-
-            file >> pipe.diameter;
-            if (file.fail() || pipe.diameter <= 0) throw runtime_error("Ошибка чтения диаметра трубы");
-
-            file >> pipe.inRepair;
-            if (file.fail()) throw runtime_error("Ошибка чтения статуса ремонта трубы");
-            file.ignore();
-
-            tempPipes[pipe.id] = pipe;
-            tempNextPipeId = max(tempNextPipeId, pipe.id + 1);
+            pipe.loadFromFile(file);
+            pipes.push_back(pipe);
         }
 
         // Загружаем станции
         int stationCount;
         file >> stationCount;
-        if (file.fail() || stationCount < 0) {
-            throw runtime_error("Неверный формат файла: некорректное количество станций");
-        }
         file.ignore();
 
         for (int i = 0; i < stationCount; i++) {
-            KS station;
-            file >> station.id;
-            if (file.fail()) throw runtime_error("Ошибка чтения ID станции");
-            file.ignore();
-
-            getline(file, station.name);
-            if (station.name.empty()) throw runtime_error("Ошибка чтения названия станции");
-
-            file >> station.totalWorkshops;
-            if (file.fail() || station.totalWorkshops <= 0) throw runtime_error("Ошибка чтения количества цехов");
-
-            file >> station.workingWorkshops;
-            if (file.fail() || station.workingWorkshops < 0 || station.workingWorkshops > station.totalWorkshops) {
-                throw runtime_error("Ошибка чтения количества работающих цехов");
-            }
-            file.ignore();
-
-            tempStations[station.id] = station;
-            tempNextStationId = max(tempNextStationId, station.id + 1);
+            Station station;
+            station.loadFromFile(file);
+            stations.push_back(station);
         }
 
-        // Если все прошло успешно, переносим данные
-        pipes = tempPipes;
-        stations = tempStations;
-        nextPipeId = tempNextPipeId;
-        nextStationId = tempNextStationId;
-
         file.close();
-        cout << "Данные успешно загружены из файла: " << filename << endl;
-        cout << "Загружено труб: " << pipes.size() << ", станций: " << stations.size() << endl;
-        logAction("Данные загружены", filename + " | труб: " + to_string(pipes.size()) + ", КС: " + to_string(stations.size()));
-
+        logAction("Загружено из файла: " + filename);
+        std::cout << "Данные загружены!\n";
     }
-    catch (const exception& e) {
-        cout << "ОШИБКА при загрузке файла: " << e.what() << endl;
-        cout << "Текущие данные не были изменены." << endl;
-        file.close();
-        logAction("Ошибка загрузки данных", string(e.what()));
-        return;
-    }
-}
+};
 
-void displayMenu() {
-    cout << "\n=== ГЛАВНОЕ МЕНЮ ===" << endl;
-    cout << "1 - Добавить трубу" << endl;
-    cout << "2 - Добавить КС" << endl;
-    cout << "3 - Просмотр всех объектов" << endl;
-    cout << "4 - Поиск объектов" << endl;
-    cout << "5 - Редактировать трубу" << endl;
-    cout << "6 - Редактировать КС" << endl;
-    cout << "7 - Сохранить" << endl;
-    cout << "8 - Загрузить" << endl;
-    cout << "0 - Выход" << endl;
-    cout << "Выберите действие: ";
+void showMenu() {
+    std::cout << "\n=== ГЛАВНОЕ МЕНЮ ===\n";
+    std::cout << "1 - Добавить трубу\n";
+    std::cout << "2 - Добавить станцию\n";
+    std::cout << "3 - Показать все\n";
+    std::cout << "4 - Поиск труб\n";
+    std::cout << "5 - Поиск станций\n";
+    std::cout << "6 - Пакетное редактирование труб\n";
+    std::cout << "7 - Сохранить\n";
+    std::cout << "8 - Загрузить\n";
+    std::cout << "0 - Выход\n";
+    std::cout << "Выберите: ";
 }
 
 int main() {
     setlocale(LC_ALL, "RU");
+    PipelineManager manager;
 
-    // Инициализация логирования
-    initLogging();
     logAction("Программа запущена");
 
     while (true) {
-        displayMenu();
-        int choice = checkMenuChoice();
+        showMenu();
+        int choice = getIntInput();
 
         switch (choice) {
-        case 1: addPipe(); break;
-        case 2: addStation(); break;
-        case 3: viewAllObjects(); break;
-        case 4: searchMenu(); break;
-        case 5: editPipe(); break;
-        case 6: editStation(); break;
-        case 7: saveToFile(); break;
-        case 8: loadFromFile(); break;
+        case 1: manager.addPipe(); break;
+        case 2: manager.addStation(); break;
+        case 3: manager.showAll(); break;
+        case 4: manager.findPipes(); break;
+        case 5: manager.findStations(); break;
+        case 6: manager.batchEditPipes(); break;
+        case 7: manager.saveToFile(); break;
+        case 8: manager.loadFromFile(); break;
         case 0:
-            cout << "Выход из программы." << endl;
-            logAction("Выход из программы");
-            closeLogging();
+            logAction("Программа завершена");
             return 0;
+        default:
+            std::cout << "Неверный выбор!\n";
         }
     }
-
-    return 0;
 }

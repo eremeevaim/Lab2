@@ -123,18 +123,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="cs.cpp" />
+    <ClCompile Include="station.cpp" />
     <ClCompile Include="Lab2.cpp" />
-    <ClCompile Include="logger.cpp" />
     <ClCompile Include="pipe.cpp" />
-    <ClCompile Include="pipeline_system.cpp" />
     <ClCompile Include="utils.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="cs.h" />
-    <ClInclude Include="logger.h" />
+    <ClInclude Include="station.h" />
     <ClInclude Include="pipe.h" />
-    <ClInclude Include="pipeline_system.h" />
     <ClInclude Include="utils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

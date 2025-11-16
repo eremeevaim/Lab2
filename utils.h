@@ -1,10 +1,21 @@
 #pragma once
-#include <string>
 #include <iostream>
+#include <string>
+#include <limits>
 
-bool isInteger(const std::string& s);
-int getIntegerInput(const std::string& prompt, int minVal, int maxVal);
-double getDoubleInput(const std::string& prompt, double minVal, double maxVal);
-bool getYesNoInput(const std::string& prompt);
-std::string getStringInput(const std::string& prompt);
+// Ћогирование
+void logAction(const std::string& action);
+
+// ¬вод данных
+std::string getStringInput();
+int getIntInput();
+double getDoubleInput();
+bool getYesNoInput();
+
+// ¬вод с проверками
+int getPositiveInt();
+double getPositiveDouble();
+int getIntInRange(int min, int max);
+
+// ќчистка буфера
 void clearInputBuffer();

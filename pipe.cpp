@@ -1,82 +1,51 @@
 #include "pipe.h"
-#include <string>
-using namespace std;
+#include "utils.h"
 
-int pipe::next_id = 1;
+int Pipe::nextId = 1;
 
-pipe::pipe(string n, int l, int d, bool rep)
-{
-    setlocale(LC_ALL, "RU");
-    id = next_id++;
-    name = n;
-    length = l;
-    diameter = d;
-    inRepair = rep;
+Pipe::Pipe() : id(nextId++), name("Труба"), length(100.0), diameter(500), inRepair(false) {}
+
+Pipe::Pipe(const std::string& name, double length, int diameter, bool inRepair)
+    : id(nextId++), name(name), length(length), diameter(diameter), inRepair(inRepair) {
 }
 
-pipe::pipe()
-{
-    id = next_id++;
-    name = "Тест";
-    length = 10;
-    diameter = 20;
-    inRepair = true;
+void Pipe::readFromConsole() {
+    std::cout << "Добавление трубы (ID: " << id << ")\n";
+
+    std::cout << "Название: ";
+    name = getStringInput();
+
+    std::cout << "Длина (км): ";
+    length = getPositiveDouble();
+
+    std::cout << "Диаметр (мм): ";
+    diameter = getPositiveInt();
+
+    std::cout << "В ремонте? (1-да, 0-нет): ";
+    inRepair = getYesNoInput();
 }
 
-int pipe::GetId() const {
-    return id;
+void Pipe::printToConsole() const {
+    std::cout << "=== Труба ID: " << id << " ===\n";
+    std::cout << "Название: " << name << "\n";
+    std::cout << "Длина: " << length << " км\n";
+    std::cout << "Диаметр: " << diameter << " мм\n";
+    std::cout << "В ремонте: " << (inRepair ? "Да" : "Нет") << "\n\n";
 }
 
-string pipe::GetName() const {
-    return name;
+void Pipe::saveToFile(std::ostream& out) const {
+    out << id << "\n" << name << "\n" << length << "\n" << diameter << "\n" << inRepair << "\n";
 }
 
-int pipe::GetLength() const {
-    return length;
-}
+void Pipe::loadFromFile(std::istream& in) {
+    in >> id;
+    in.ignore();
+    std::getline(in, name);
+    in >> length >> diameter >> inRepair;
+    in.ignore();
 
-int pipe::GetDiameter() const {
-    return diameter;
-}
-
-bool pipe::GetInRepair() const {
-    return inRepair;
-}
-
-void pipe::SetInRepair(bool s) {
-    inRepair = s;
-}
-
-void pipe::SetName(string st) {
-    name = st;
-}
-
-void pipe::SetLength(int l) {
-    length = l;
-}
-
-void pipe::SetDiameter(int d) {
-    diameter = d;
-}
-
-ostream& operator<<(ostream& os, const pipe& p) {
-    os << "Труба ID: " << p.id << endl;
-    os << "Название: " << p.name << endl;
-    os << "Длина: " << p.length << " м" << endl;
-    os << "Диаметр: " << p.diameter << " мм" << endl;
-    os << "В ремонте: " << (p.inRepair ? "Да" : "Нет") << endl;
-    return os;
-}
-
-istream& operator>>(istream& is, pipe& p) {
-    cout << "Введите название трубы: ";
-    getline(is, p.name);
-    cout << "Введите длину: ";
-    is >> p.length;
-    cout << "Введите диаметр: ";
-    is >> p.diameter;
-    cout << "В ремонте (1-да, 0-нет): ";
-    is >> p.inRepair;
-    is.ignore();
-    return is;
+    // Обновляем nextId чтобы избежать дублирования ID
+    if (id >= nextId) {
+        nextId = id + 1;
+    }
 }

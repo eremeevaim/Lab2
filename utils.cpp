@@ -1,78 +1,88 @@
 #include "utils.h"
-#include <sstream>
+#include <fstream>
 
-bool isInteger(const std::string& s) {
-    std::istringstream iss(s);
-    int num;
-    iss >> num;
-    return !iss.fail() && iss.eof();
-}
-
-int getIntegerInput(const std::string& prompt, int minVal, int maxVal) {
-    setlocale(LC_ALL, "RU");
-    std::string input;
-    int value;
-
-    while (true) {
-        std::cout << prompt;
-        std::getline(std::cin, input);
-
-        if (isInteger(input)) {
-            std::stringstream ss(input);
-            ss >> value;
-            if (value >= minVal && value <= maxVal) {
-                return value;
-            }
-        }
-        std::cout << "Неверный ввод. Пожалуйста, введите целое число от "
-            << minVal << " до " << maxVal << ".\n";
+void logAction(const std::string& action) {
+    static std::ofstream logFile("actions.log", std::ios::app);
+    if (logFile.is_open()) {
+        logFile << action << "\n";  // Просто действие, без времени
     }
+    std::cout << "[ЛОГ] " << action << "\n";
 }
 
-double getDoubleInput(const std::string& prompt, double minVal, double maxVal) {
-    setlocale(LC_ALL, "RU");
+std::string getStringInput() {
     std::string input;
-    double value;
-
-    while (true) {
-        std::cout << prompt;
-        std::getline(std::cin, input);
-
-        std::stringstream ss(input);
-        if (ss >> value && value >= minVal && value <= maxVal) {
-            return value;
-        }
-        std::cout << "Неверный ввод. Пожалуйста, введите число от "
-            << minVal << " до " << maxVal << ".\n";
-    }
-}
-
-bool getYesNoInput(const std::string& prompt) {
-    setlocale(LC_ALL, "RU");
-    std::string input;
-
-    while (true) {
-        std::cout << prompt << " (д/н): ";
-        std::getline(std::cin, input);
-
-        if (input == "д" || input == "Д" || input == "y" || input == "Y" || input == "да") {
-            return true;
-        }
-        else if (input == "н" || input == "Н" || input == "n" || input == "N" || input == "нет") {
-            return false;
-        }
-        std::cout << "Пожалуйста, введите 'д' или 'н'.\n";
-    }
-}
-
-std::string getStringInput(const std::string& prompt) {
-    std::string input;
-    std::cout << prompt;
     std::getline(std::cin, input);
+
+    // Базовая проверка на пустоту
+    if (input.empty()) {
+        std::cout << "Ввод не может быть пустым. Попробуйте снова: ";
+        return getStringInput();
+    }
     return input;
 }
 
+int getIntInput() {
+    int value;
+    std::cin >> value;
+    if (std::cin.fail()) {
+        std::cin.clear();
+        clearInputBuffer();
+        std::cout << "Ошибка! Введите целое число: ";
+        return getIntInput();
+    }
+    clearInputBuffer();
+    return value;
+}
+
+double getDoubleInput() {
+    double value;
+    std::cin >> value;
+    if (std::cin.fail()) {
+        std::cin.clear();
+        clearInputBuffer();
+        std::cout << "Ошибка! Введите число: ";
+        return getDoubleInput();
+    }
+    clearInputBuffer();
+    return value;
+}
+
+bool getYesNoInput() {
+    int input = getIntInput();
+    if (input == 0 || input == 1) {
+        return input == 1;
+    }
+    std::cout << "Введите 1 (да) или 0 (нет): ";
+    return getYesNoInput();
+}
+
+int getPositiveInt() {
+    int value = getIntInput();
+    if (value <= 0) {
+        std::cout << "Число должно быть положительным. Попробуйте снова: ";
+        return getPositiveInt();
+    }
+    return value;
+}
+
+double getPositiveDouble() {
+    double value = getDoubleInput();
+    if (value <= 0) {
+        std::cout << "Число должно быть положительным. Попробуйте снова: ";
+        return getPositiveDouble();
+    }
+    return value;
+}
+
+int getIntInRange(int min, int max) {
+    int value = getIntInput();
+    if (value < min || value > max) {
+        std::cout << "Число должно быть от " << min << " до " << max << ": ";
+        return getIntInRange(min, max);
+    }
+    return value;
+}
+
 void clearInputBuffer() {
-    std::cin.clear();
-    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    std::cin.ignore(10000, '\n');  // Простая очистка
 }
